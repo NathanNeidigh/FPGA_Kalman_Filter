@@ -1,5 +1,5 @@
 *.bin
 *.json
 *.asc
-bin/
+bin/*
 *.vvp
