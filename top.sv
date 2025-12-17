@@ -4,7 +4,7 @@
 //              Routes SPI MISO signals to LEDs and external headers.
 // -----------------------------------------------------------------------------
 
-module top_level (
+module top (
     // SPI Interface (Shared with RP2350 and Sensor)
     input logic rp2350_miso,  // Pin 27: Data from Sensor
     input logic rp2350_cs,    // Pin 26: Same Clock as Sensor
@@ -41,12 +41,14 @@ module top_level (
   logic [15:0] filtered_data;
   logic x_valid;
 
-  kalman_filter kalman_filter (
-      .clk(z_valid),
-      .z_in(z),
-      .x_out(filtered_data),
-      .x_valid(x_valid)
-  );
+//   kalman_filter kalman_filter (
+//       .clk(z_valid),
+//       .z_in(z),
+//       .x_out(filtered_data),
+//       .x_valid(x_valid)
+//   );
+    assign filtered_data = z;
+    assign x_valid = z_valid;
 
   // Instantiate the Parallel-to-Serial converter
   parallel_2_serial u_parallel_2_serial (
