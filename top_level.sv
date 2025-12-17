@@ -6,55 +6,57 @@
 
 module top_level (
     // SPI Interface (Shared with RP2350 and Sensor)
-    input  logic spi_miso,      // Pin 27: Data from Sensor
-    input  logic spi_cs,        // Pin 26: Same Clock as Sensor
-    input  logic spi_sck,       // Pin 19: Same CS as Sensor
+    input logic rp2350_miso,  // Pin 27: Data from Sensor
+    input logic rp2350_cs,    // Pin 26: Same Clock as Sensor
+    input logic rp2350_sck,   // Pin 19: Same CS as Sensor
 
     // For Testing Only
-    input  logic spi_mosi,
-
+    input logic spi_mosi,
 
     // Outputs
-    output logic led_red_n,     // FPGA Pin 41: Active-Low Red LED
+    output logic led_red_n,     // Pin 41: Active-Low Red LED
     output logic led_green_n,   // Pin 39: Active-Low Green LED
-    output logic miso_raw,      // Pin 25: Raw MISO copy
-    output logic data_out_logic // Pin 23: Post-Logic Output
+    output logic led_blue_n,
+    output logic rpi_mosi, // Pin 23: Post-Logic Output
+    output logic rpi_cs,
+    output logic rpi_sck
 );
+  logic [15:0] z;
+  logic        z_valid;
+  // Flash LEDs
+  assign led_red_n   = ~rp2350_miso;
+  assign led_blue_n  = ~z_valid;  //LED indicator of successful serial to parallel conversion
+  assign led_green_n = ~logic_result;  // Flash Green LED with processed data (Active-Low)
 
-    // Internal Signals
-    logic logic_result;
+  // Instantiate the deserializer
+  serial_2_parallel u_serial_2_parallel (
+      .spi_sck     (rp2350_sck),   // Physical Pin
+      .spi_cs      (rp2350_cs),    // Physical Pin
+      .spi_miso    (rp2350_miso),  // Physical Pin
+      .Filter_Input(z),            // Parallel output wire
+      .data_ready  (z_valid)       // Valid parallel data input to FPGA indicator
+  );
 
-    // -------------------------------------------------------------------------
-    // 1. Raw Data Routing
-    // -------------------------------------------------------------------------
-    // Send raw sensor data to external Pin 25
-    assign miso_raw = spi_miso;
+  //Internal wire for the serial output data
+  logic [15:0] filtered_data;
+  logic x_valid;
 
-    // Flash Red LED with raw data.
-    // Note: LEDs are Active-Low (0 = ON). We invert the signal so:
-    // High Data (1) -> LED ON (0).
-    assign led_red_n = ~spi_miso;
+  kalman_filter kalman_filter (
+      .clk(z_valid),
+      .z_in(z),
+      .x_out(filtered_data),
+      .x_valid(x_valid)
+  );
 
-    // -------------------------------------------------------------------------
-    // 2. Logic Processing
-    // -------------------------------------------------------------------------
-    // Instantiate the logic module (currently a wire)
-    fpga_logic u_logic (
-        .raw_data_in       (spi_miso),
-        .spi_sck           (spi_sck),
-        .spi_cs            (spi_cs),
-        .spi_miso          (spi_miso),
-        .filtered_data_out (logic_result),
-        .led_blue_n        ()  // Unused for now
-    );
-
-    // -------------------------------------------------------------------------
-    // 3. Processed Data Routing
-    // -------------------------------------------------------------------------
-    // Send processed data to external Pin 23
-    assign data_out_logic = logic_result;
-
-    // Flash Green LED with processed data (Active-Low)
-    assign led_green_n = ~logic_result;
+  // Instantiate the Parallel-to-Serial converter
+  parallel_2_serial u_parallel_2_serial (
+      .rp2350_sck   (rp2350_sck),     // Connect to the shared clock
+      .filtered_data(filtered_data),  // The 16-bit data to send
+      .filter_done  (x_valid),
+      .rpi_mosi     (rpi_mosi),       // The physical serial output pin (Master Out)
+      .rpi_sck      (rpi_sck),
+      .rpi_cs       (rpi_cs)
+  );
 
 endmodule
+

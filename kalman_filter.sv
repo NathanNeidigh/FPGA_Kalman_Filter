@@ -12,20 +12,15 @@ module kalman_filter #(
     parameter int INTER_W = 128
 ) (
     input logic clk,
-    input logic reset_n,
 
     // measurement input (signed Q15)
-    input logic                         z_valid,
-    input logic signed [STATE_BITS-1:0] z_in,     // measurement in Q = STATE_Q
-
-    // process & measurement variances (signed Q30)
-    input logic [VAR_BITS-1:0] Q_var,  // process noise variance (Q30)
-    input logic [VAR_BITS-1:0] R_var,  // measurement noise variance (Q30)
+    input logic signed [STATE_BITS-1:0] z_in,  // measurement in Q = STATE_Q
 
     // output estimate (signed Q15)
-    output logic signed [STATE_BITS-1:0] x_out,
-    output logic                         x_valid
+    output logic signed [STATE_BITS-1:0] x_out
 );
+  // process & measurement variances (signed Q30)
+  logic        [  VAR_BITS-1:0] R_var;  // measurement noise variance (Q30)
 
   // Internal state registers
   logic signed [STATE_BITS-1:0] x_reg;  // x in Q = STATE_Q
@@ -94,106 +89,91 @@ module kalman_filter #(
       // already initialized above; redundant but explicit
       x_reg   <= '0;
       P_reg   <= (1'sd1 <<< VAR_Q);
-      x_valid <= 1'b0;
       is_init <= 1'b1;
     end else begin
-      x_valid <= 1'b0;  // default
+      // widen P_reg, Q_var, R_var to INTER_W
+      logic signed [INTER_W-1:0] P_minus_inter;
+      logic signed [INTER_W-1:0] Rvar_inter;
+      logic signed [INTER_W-1:0] denom_inter;
 
-      if (z_valid) begin
-        // widen P_reg, Q_var, R_var to INTER_W
-        logic signed [INTER_W-1:0] P_minus_inter;
-        logic signed [INTER_W-1:0] Qvar_inter;
-        logic signed [INTER_W-1:0] Rvar_inter;
-        logic signed [INTER_W-1:0] denom_inter;
+      P_minus_inter = {{(INTER_W - VAR_BITS) {P_reg[VAR_BITS-1]}}, P_reg};
+      Rvar_inter = {{(INTER_W - VAR_BITS) {R_var[VAR_BITS-1]}}, R_var};
 
-        P_minus_inter = {{(INTER_W - VAR_BITS) {P_reg[VAR_BITS-1]}}, P_reg};
-        Qvar_inter  = {{(INTER_W - VAR_BITS) {Q_var[VAR_BITS-1]}}, Q_var};
-        Rvar_inter  = {{(INTER_W - VAR_BITS) {R_var[VAR_BITS-1]}}, R_var};
+      // compute K = (P_minus << K_Q) / denom  -> K in Q = K_Q
+      denom_inter = P_minus_inter + Rvar_inter;
 
-        // Predict step (P_minus = P + Q)
-        P_minus_inter = P_minus_inter + Qvar_inter;
+      // Left shift P_minus by K_Q (wide intermediate)
+      logic [INTER_W-1:0] numer_K_inter;
+      logic [INTER_W-1:0] K_inter;  // K in Q=K_Q (but still in INTER_W container)
 
-        // compute K = (P_minus << K_Q) / denom  -> K in Q = K_Q
-        denom_inter = P_minus_inter + Rvar_inter;
+      numer_K_inter = P_minus_inter <<< K_Q;  // P_minus * 2^K_Q
+      // division: unsigned division - synthesizable but expensive
+      K_inter = numer_K_inter / denom_inter;  // result in Q=K_Q
 
-        // Left shift P_minus by K_Q (wide intermediate)
-        logic [INTER_W-1:0] numer_K_inter;
-        logic [INTER_W-1:0] K_inter;  // K in Q=K_Q (but still in INTER_W container)
+      // Bound K_inter to [0, 1<<K_Q] realistically (can't be <0; clamp)
+      // max_K = (1 << K_Q) (represents value 1.0)
+      logic signed [INTER_W-1:0] maxK_inter;
+      maxK_inter = ({{(INTER_W - (K_Q + 1)) {1'b0}}, 1'b1} << K_Q);  // 1 << K_Q
+      if (K_inter > maxK_inter) K_inter = maxK_inter;
 
-        numer_K_inter = P_minus_inter <<< K_Q;  // P_minus * 2^K_Q
-        // division: unsigned division - synthesizable but expensive
-        K_inter = numer_K_inter / denom_inter;  // result in Q=K_Q
+      // residual = z_in - x_reg  (both are STATE_Q)
+      logic signed [INTER_W-1:0] residual_inter;
+      // sign-extend both to INTER_W with their Q alignment in mind
+      logic signed [INTER_W-1:0] z_inter;
+      logic signed [INTER_W-1:0] x_inter;
+      z_inter = {{(INTER_W - STATE_BITS) {z_in[STATE_BITS-1]}}, z_in};
+      x_inter = {{(INTER_W - STATE_BITS) {x_reg[STATE_BITS-1]}}, x_reg};
+      residual_inter = z_inter - x_inter;  // Q = STATE_Q
 
-        // Bound K_inter to [0, 1<<K_Q] realistically (can't be <0; clamp)
-        // max_K = (1 << K_Q) (represents value 1.0)
-        logic signed [INTER_W-1:0] maxK_inter;
-        maxK_inter = ({{(INTER_W - (K_Q + 1)) {1'b0}}, 1'b1} << K_Q);  // 1 << K_Q
-        if (K_inter > maxK_inter) K_inter = maxK_inter;
+      // Compute x_new:
+      // temp = (K * residual) >> K_Q  (K is Q=K_Q, residual Q=STATE_Q)
+      // - Multiply K_inter * residual_inter -> product Q = K_Q + STATE_Q
+      // - Right shift by K_Q to get back to Q = STATE_Q
+      logic signed [INTER_W-1:0] prod_K_residual;
+      logic signed [INTER_W-1:0] temp_shifted;  // Q = STATE_Q after shift
 
-        // residual = z_in - x_reg  (both are STATE_Q)
-        logic signed [INTER_W-1:0] residual_inter;
-        // sign-extend both to INTER_W with their Q alignment in mind
-        logic signed [INTER_W-1:0] z_inter;
-        logic signed [INTER_W-1:0] x_inter;
-        z_inter = {{(INTER_W - STATE_BITS) {z_in[STATE_BITS-1]}}, z_in};
-        x_inter = {{(INTER_W - STATE_BITS) {x_reg[STATE_BITS-1]}}, x_reg};
-        residual_inter = z_inter - x_inter;  // Q = STATE_Q
+      prod_K_residual = K_inter * residual_inter;  // wide product (Q = K_Q + STATE_Q)
+      // round and shift by K_Q to go back to STATE_Q
+      temp_shifted = round_shr_signed(prod_K_residual, K_Q);
 
-        // Compute x_new:
-        // temp = (K * residual) >> K_Q  (K is Q=K_Q, residual Q=STATE_Q)
-        // - Multiply K_inter * residual_inter -> product Q = K_Q + STATE_Q
-        // - Right shift by K_Q to get back to Q = STATE_Q
-        logic signed [INTER_W-1:0] prod_K_residual;
-        logic signed [INTER_W-1:0] temp_shifted;  // Q = STATE_Q after shift
+      // Now produce x_new = x_reg + temp_shifted (both Q = STATE_Q)
+      logic signed [INTER_W-1:0] x_new_inter;
+      x_new_inter = x_inter + temp_shifted;
 
-        prod_K_residual = K_inter * residual_inter;  // wide product (Q = K_Q + STATE_Q)
-        // round and shift by K_Q to go back to STATE_Q
-        temp_shifted = round_shr_signed(prod_K_residual, K_Q);
+      // saturate x_new to STATE_BITS
+      logic signed [INTER_W-1:0] x_new_sat_inter;
+      x_new_sat_inter = sat_to_bits_signed(x_new_inter, STATE_BITS);
 
-        // Now produce x_new = x_reg + temp_shifted (both Q = STATE_Q)
-        logic signed [INTER_W-1:0] x_new_inter;
-        x_new_inter = x_inter + temp_shifted;
+      // Convert back to STATE_BITS width
+      logic signed [STATE_BITS-1:0] x_new_reg;
+      x_new_reg = x_new_sat_inter[STATE_BITS-1:0];
 
-        // saturate x_new to STATE_BITS
-        logic signed [INTER_W-1:0] x_new_sat_inter;
-        x_new_sat_inter = sat_to_bits_signed(x_new_inter, STATE_BITS);
+      // Compute P_new = ((1 - K) * P_minus) >> K_Q   (Q = VAR_Q)
+      // one_minus_K = (1 << K_Q) - K_inter  (Q = K_Q)
+      logic signed [INTER_W-1:0] one_minus_K_inter;
+      one_minus_K_inter = maxK_inter - K_inter;  // (1<<K_Q) - K
 
-        // Convert back to STATE_BITS width
-        logic signed [STATE_BITS-1:0] x_new_reg;
-        x_new_reg = x_new_sat_inter[STATE_BITS-1:0];
+      // Multiply one_minus_K_inter (Q=K_Q) * P_minus_inter (Q=VAR_Q) -> Q = K_Q + VAR_Q
+      logic signed [INTER_W-1:0] prod_omk_pminus;
+      prod_omk_pminus = one_minus_K_inter * P_minus_inter;
 
-        // Compute P_new = ((1 - K) * P_minus) >> K_Q   (Q = VAR_Q)
-        // one_minus_K = (1 << K_Q) - K_inter  (Q = K_Q)
-        logic signed [INTER_W-1:0] one_minus_K_inter;
-        one_minus_K_inter = maxK_inter - K_inter;  // (1<<K_Q) - K
+      // right shift by K_Q (with rounding) to return to Q = VAR_Q
+      logic signed [INTER_W-1:0] P_new_inter;
+      P_new_inter = round_shr_signed(prod_omk_pminus, K_Q);
 
-        // Multiply one_minus_K_inter (Q=K_Q) * P_minus_inter (Q=VAR_Q) -> Q = K_Q + VAR_Q
-        logic signed [INTER_W-1:0] prod_omk_pminus;
-        prod_omk_pminus = one_minus_K_inter * P_minus_inter;
+      // saturate P_new to COV_BITS
+      logic signed [INTER_W-1:0] P_new_sat_inter;
+      P_new_sat_inter = sat_to_bits_signed(P_new_inter, COV_BITS);
 
-        // right shift by K_Q (with rounding) to return to Q = VAR_Q
-        logic signed [INTER_W-1:0] P_new_inter;
-        P_new_inter = round_shr_signed(prod_omk_pminus, K_Q);
+      logic signed [COV_BITS-1:0] P_new_reg;
+      P_new_reg = P_new_sat_inter[COV_BITS-1:0];
 
-        // saturate P_new to COV_BITS
-        logic signed [INTER_W-1:0] P_new_sat_inter;
-        P_new_sat_inter = sat_to_bits_signed(P_new_inter, COV_BITS);
+      // Update registers (single-cycle)
+      x_reg   <= x_new_reg;
+      P_reg   <= P_new_reg;
 
-        logic signed [COV_BITS-1:0] P_new_reg;
-        P_new_reg = P_new_sat_inter[COV_BITS-1:0];
-
-        // Update registers (single-cycle)
-        x_reg   <= x_new_reg;
-        P_reg   <= P_new_reg;
-
-        // valid output next cycle (we set x_out combinationally below to reflect x_reg)
-        x_valid <= 1'b1;
-      end else begin
-        // No update this cycle; keep previous values
-        x_reg   <= x_reg;
-        P_reg   <= P_reg;
-        x_valid <= 1'b0;
-      end
+      // valid output next cycle (we set x_out combinationally below to reflect x_reg)
+      x_valid <= 1'b1;
     end
   end
 
