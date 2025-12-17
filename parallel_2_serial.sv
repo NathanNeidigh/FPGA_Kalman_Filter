@@ -75,7 +75,7 @@ module parallel_2_serial (
     initial begin
         data_available = 1'b0;
         tx_bit_count = 4'd0;
-        shift_reg = 16'd0;
+        shift_reg = 16'hFFFF;
         cs_prev = 1'b1;
         transmitting = 1'b0;
     end
