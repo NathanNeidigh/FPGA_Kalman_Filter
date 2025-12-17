@@ -41,14 +41,14 @@ module top (
   logic [15:0] filtered_data;
   logic x_valid;
 
-//   kalman_filter kalman_filter (
-//       .clk(z_valid),
-//       .z_in(z),
-//       .x_out(filtered_data),
-//       .x_valid(x_valid)
-//   );
-    assign filtered_data = z;
-    assign x_valid = z_valid;
+  // kalman_filter kalman_filter (
+  //     .clk(z_valid),
+  //     .z_in(z),
+  //     .x_out(filtered_data),
+  //     .x_valid(x_valid)
+  // );
+    assign filtered_data = z;   // Bypass Kalman filter for testing
+    assign x_valid = z_valid;   // Bypass Kalman filter for testing
 
   // Instantiate the Parallel-to-Serial converter
   parallel_2_serial u_parallel_2_serial (

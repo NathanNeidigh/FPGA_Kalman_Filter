@@ -170,8 +170,9 @@ def init_sensor():
 if __name__ == "__main__":
     # Step 1: Program the FPGA
     # The FPGA must be configured first to set its I/O pins correctly for
-    # data routing before the sensor is told to start streaming.
-    success = load_bitstream("sensor_stream.bin")
+    # data routing before the sensor is to start streaming.
+    success = True
+    #success = load_bitstream("FIXME.bin")
 
     
     if success:
