@@ -15,13 +15,13 @@ PNR_SEED =
 #INCLUDE_PATH = /home/neidna/ENGR_433/99-common/
 #OBJECTS = $(INCLUDE_PATH)debounce.v $(INCLUDE_PATH)color_mixer.v
 INCLUDE_PATH =
-OBJECTS =
+OBJECTS = serial_2_parallel.sv parallel_2_serial.sv kalman_filter.sv
 
 RAM = true
 
 all: $(BIN)
 
-flash: $(BIN)
+flash: $(BIN)			#Change the path below to match your mounted USB drive
 	cp -u $(BIN) /run/media/$$USER/5221-0000/bitstream.bin || (sleep 2 && cp -u $(BIN) /run/media/$$USER/5221-0000/bitstream.bin)
 	sleep 1
 	if [ "$(RAM)" = "true" ]; then \
