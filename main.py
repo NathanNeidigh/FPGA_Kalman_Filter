@@ -161,37 +161,6 @@ def init_sensor():
             time.sleep_ms(2)
     except KeyboardInterrupt:
         print("Stopped")
-    
-'''    # Multi-register reading (starting address & data)
-    def read_multi(st_reg):
-        cs.value(0)
-        spi.write(bytearray([st_reg | 0x80]))  # Address 0x04 sets multi-byte transmit to 1 (True)
-        val = spi.read()							# Read 8 bytes of data
-#         cs.value(1)
-        return val[0]
-    
-# 3. Sensor Configuration Commands
-    #write_reg(0x12, 0x81) # CTRL3_C: 
-    #time.sleep_ms(30)     # Wait for internal reset to complete 
-
-    # Configure Accelerometer (CTRL1_XL: 0x10)
-    # 0x5C = ODR_XL [3:0] (416 Hz) + FS_XL [1:0] (±4g)
-    write_reg(0x10, 0x5c)
-    #read_reg(0x10)
-    
-    # Start Reading Accelerometer Measurement data
-    read_multi(0x28)
-    
-    # 4. Verify Connection (WHO_AM_I register is 0x6B)
-    whoami = read_reg(0x0F)
-#     whoami = 0x6a
-    if whoami == 0x6B:
-        print(f"[SENSOR] Initialization Success! WHO_AM_I: 0x{whoami:02X}")
-        print("[SYSTEM] Sensor is active and streaming MISO data to RP2350.")
-    else:
-        print(f"[SENSOR] ERROR: WHO_AM_I returned 0x{whoami:02X} (Expected 0x6B).")
-'''
-
 
     
 # ==========================================

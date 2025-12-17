@@ -15,16 +15,19 @@ PNR_SEED =
 #INCLUDE_PATH = /home/neidna/ENGR_433/99-common/
 #OBJECTS = $(INCLUDE_PATH)debounce.v $(INCLUDE_PATH)color_mixer.v
 INCLUDE_PATH =
-OBJECTS =
+OBJECTS = serial_2_parallel.sv parallel_2_serial.sv kalman_filter.sv
 
 RAM = true
+RP2350 = false
 
 all: $(BIN)
 
-flash: $(BIN)
-	cp -u $(BIN) /run/media/$$USER/5221-0000/bitstream.bin || (sleep 2 && cp -u $(BIN) /run/media/$$USER/5221-0000/bitstream.bin)
+flash: $(BIN)			#Change the path below to match your mounted USB drive
+	cp -u $(BIN) /media/$$USER/5221-0000/bitstream.bin || (sleep 2 && cp -u $(BIN) /media/$$USER/5221-0000/bitstream.bin)
 	sleep 1
-	if [ "$(RAM)" = "true" ]; then \
+	if [ "$(RP2350)" = "true" ]; then \
+		sudo ~/.local/bin/mpremote connect /dev/ttyACM0 run main.py; \
+	elif [ "$(RAM)" = "true" ]; then \
 		sudo ~/.local/bin/mpremote connect /dev/ttyACM0 run flash_RAM.py; \
 	else \
 		sudo ~/.local/bin/mpremote connect /dev/ttyACM0 run flash.py; \

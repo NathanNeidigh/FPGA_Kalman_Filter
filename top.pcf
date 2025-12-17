@@ -1,14 +1,23 @@
-set_io clk 35
-set_io sw2 10
+# -----------------------------------------------------------------------------
+# Physical Constraints File (.pcf) for pico2-ice
+# Based on tinyVision.ai pinout
+# All pins are FPGA pin numbers, not GPIO or RP2350
+# -----------------------------------------------------------------------------
 
-# LED pins
-set_io rLed 41
-set_io gLed 39
-set_io bLed 40
+# SPI Interface (Tapped Bus)
+set_io -nowarn rp2350_sck  26
+set_io -nowarn rp2350_miso 27
+set_io -nowarn rp2350_cs   19
 
-# LogicAnalyzer pins
-set_io ch3 20
-set_io ch4 19
-set_io ch6 23
-set_io ch7 21
-set_io ch8 18
+# RGB LEDs (Active Low)
+set_io -nowarn led_green_n 39
+set_io -nowarn led_red_n   41
+set_io -nowarn led_blue_n  40
+
+# Output Headers for Data Tapping
+set_io -nowarn rpi_miso   28
+set_io -nowarn rpi_sck    31
+set_io -nowarn rpi_cs     32
+
+# For Testing Only
+set_io -nowarn spi_mosi 14
