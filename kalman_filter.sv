@@ -1,8 +1,7 @@
 // 1D Kalman Filter (A=1, B=0, H=1) - fixed point, single-cycle update
 module kalman_filter #(
     // Configurable widths (you accepted these defaults)
-    parameter int STATE_BITS = 16,    // signed [STATE_BITS-1:0]  (Q = STATE_Q)
-    parameter int STATE_Q    = 15,    // fractional bits for state & measurement (Q15)
+    parameter int STATE_BITS = 16,    // signed [STATE_BITS-1:0]
 
     parameter int VAR_BITS = 64,  // unsigned [COV_BITS-1:0] for P, Q_var, R_var (Q = VAR_Q)
     parameter int VAR_Q    = 30,  // fractional bits for variances (Q30)
@@ -14,18 +13,19 @@ module kalman_filter #(
     input logic clk,
 
     // measurement input (signed Q15)
-    input logic signed [STATE_BITS-1:0] z_in,  // measurement in Q = STATE_Q
+    input logic signed [STATE_BITS-1:0] z_in,
 
     // output estimate (signed Q15)
-    output logic signed [STATE_BITS-1:0] x_out
+    output logic signed [STATE_BITS-1:0] x_out,
+    output logic x_valid
 );
   // process & measurement variances (signed Q30)
-  logic        [  VAR_BITS-1:0] R_var;  // measurement noise variance (Q30)
+  logic        [  VAR_BITS-1:0] R_var = 64'h3255;  // measurement noise variance (Q30) hardcoded value of 1.2e-5 variance from testing.
 
   // Internal state registers
-  logic signed [STATE_BITS-1:0] x_reg;  // x in Q = STATE_Q
-  logic        [  VAR_BITS-1:0] P_reg;  // P in Q = VAR_Q
-  logic                         is_init;
+  logic signed [STATE_BITS-1:0] x_reg;
+  logic [VAR_BITS-1:0] P_reg;  // P in Q = VAR_Q
+  logic is_init;
 
   // helper functions ----------------------------------------------------
   // round-right-shift for signed wide integers:
@@ -77,12 +77,16 @@ module kalman_filter #(
   // Main update (single-cycle) ------------------------------------------------
   // We'll do: when z_valid is high, perform:
   //   P_minus = P + Q_var                   (Q = VAR_Q)
-  //   x_minus = x                           (Q = STATE_Q)
+  //   x_minus = x
   //   denom = P_minus + R_var               (Q = VAR_Q)
   //   K = (P_minus << K_Q) / denom          (K in Q = K_Q)
-  //   innovation = z_in - x_minus           (Q = STATE_Q)
-  //   x_new = x_minus + (K * innovation >> K_Q)  -> result in Q = STATE_Q
+  //   innovation = z_in - x_minus
+  //   x_new = x_minus + (K * innovation >> K_Q)
   //   P_new = ((1 - K) * P_minus) >> K_Q    -> result in Q = VAR_Q
+
+  always_ff @(negedge clk) begin
+    x_valid = 1'b0;
+  end
 
   always_ff @(posedge clk) begin
     if (!is_init) begin
@@ -116,27 +120,27 @@ module kalman_filter #(
       maxK_inter = ({{(INTER_W - (K_Q + 1)) {1'b0}}, 1'b1} << K_Q);  // 1 << K_Q
       if (K_inter > maxK_inter) K_inter = maxK_inter;
 
-      // residual = z_in - x_reg  (both are STATE_Q)
+      // residual = z_in - x_reg
       logic signed [INTER_W-1:0] residual_inter;
       // sign-extend both to INTER_W with their Q alignment in mind
       logic signed [INTER_W-1:0] z_inter;
       logic signed [INTER_W-1:0] x_inter;
       z_inter = {{(INTER_W - STATE_BITS) {z_in[STATE_BITS-1]}}, z_in};
       x_inter = {{(INTER_W - STATE_BITS) {x_reg[STATE_BITS-1]}}, x_reg};
-      residual_inter = z_inter - x_inter;  // Q = STATE_Q
+      residual_inter = z_inter - x_inter;
 
       // Compute x_new:
-      // temp = (K * residual) >> K_Q  (K is Q=K_Q, residual Q=STATE_Q)
-      // - Multiply K_inter * residual_inter -> product Q = K_Q + STATE_Q
-      // - Right shift by K_Q to get back to Q = STATE_Q
+      // temp = (K * residual) >> K_Q  (K is Q=K_Q, residual
+      // - Multiply K_inter * residual_inter -> product Q = K_Q
+      // - Right shift by K_Q to get back to Q = 0
       logic signed [INTER_W-1:0] prod_K_residual;
-      logic signed [INTER_W-1:0] temp_shifted;  // Q = STATE_Q after shift
+      logic signed [INTER_W-1:0] temp_shifted;
 
-      prod_K_residual = K_inter * residual_inter;  // wide product (Q = K_Q + STATE_Q)
-      // round and shift by K_Q to go back to STATE_Q
+      prod_K_residual = K_inter * residual_inter;  // wide product (Q = K_Q)
+      // round and shift by K_Q to go back to Q=0
       temp_shifted = round_shr_signed(prod_K_residual, K_Q);
 
-      // Now produce x_new = x_reg + temp_shifted (both Q = STATE_Q)
+      // Now produce x_new = x_reg + temp_shifted
       logic signed [INTER_W-1:0] x_new_inter;
       x_new_inter = x_inter + temp_shifted;
 
