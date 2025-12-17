@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 spi = spidev.SpiDev(0, 0)
 spi.max_speed_hz = 10_000_000 #10MHz
 spi.mode = 0b11
-WINDOW_SIZE = 100
+WINDOW_SIZE = 500
+PLOT_INTERVAL = 0.5
 
 index = 0
 zs = np.zeros(WINDOW_SIZE, dtype=np.float64)
@@ -25,7 +26,7 @@ def read_reg(reg, msg_len):
     return data
 
 def setup_IMU():
-    write_reg(0x10, 0x60)
+    write_reg(0x10, 0xA0)
 
 def read_accel():
     data = read_reg(0x2C, 2)
@@ -45,8 +46,6 @@ def read_buffer(buf):
 
 setup_IMU()
 
-start = time.time()
-
 plt.ion()
 fig, ax = plt.subplots()
 line_z, = ax.plot([], [], label='Az')
@@ -54,15 +53,21 @@ ax.set_ylim(0.9, 1.1)
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Acceleration (g)")
 
+start = time.perf_counter()
+last_plot = time.perf_counter()
+
 while True:
     z = read_accel()
-    t = time.time() - start
-
+    t = time.perf_counter() - start
     update_buffers(times, zs, t, z)
 
-    line_z.set_data(read_buffer(times), read_buffer(zs))
-    ax.set_xlim(max(0, t-5), t)
-
-    sample_rate = WINDOW_SIZE  / (times[index-1] - times[index]) 
-    ax.set_title(f"Linear Acceleraion data at {sample_rate}")
-    plt.pause(0.0000001)
+    now = time.perf_counter()
+    if now - last_plot > PLOT_INTERVAL:
+        last_plot = now
+        valid_times = read_buffer(times)
+        valid_zs = read_buffer(zs)
+        line_z.set_data(valid_times, valid_zs)
+        ax.set_xlim(min(valid_times), max(valid_times))
+        sample_rate = WINDOW_SIZE  / (times[index-1] - times[index]) 
+        ax.set_title(f"Linear Acceleraion data at {sample_rate}")
+        plt.pause(0.001)
