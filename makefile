@@ -23,7 +23,7 @@ RP2350 = false
 all: $(BIN)
 
 flash: $(BIN)			#Change the path below to match your mounted USB drive
-	cp -u $(BIN) /media/$$USER/5221-0000/bitstream.bin || (sleep 2 && cp -u $(BIN) /media/$$USER/5221-0000/bitstream.bin)
+	cp -u $(BIN) /run/media/$$USER/5221-0000/bitstream.bin || (sleep 2 && cp -u $(BIN) /run/media/$$USER/5221-0000/bitstream.bin)
 	sleep 1
 	if [ "$(RP2350)" = "true" ]; then \
 		sudo ~/.local/bin/mpremote connect /dev/ttyACM0 run main.py; \
