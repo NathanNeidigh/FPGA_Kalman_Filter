@@ -12,8 +12,6 @@ DEVICE = up5k
 PACKAGE = sg48
 PNR_SEED =
 
-#INCLUDE_PATH = /home/neidna/ENGR_433/99-common/
-#OBJECTS = $(INCLUDE_PATH)debounce.v $(INCLUDE_PATH)color_mixer.v
 INCLUDE_PATH =
 OBJECTS = serial_2_parallel.sv parallel_2_serial.sv kalman_filter.sv
 
