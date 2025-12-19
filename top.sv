@@ -45,8 +45,8 @@ module top (
 
   kalman_filter kalman_filter (
       .clk(z_valid),
-      .z_in(z),
-      .x_out(posterior),
+      .z(z),
+      .x(posterior),
       .x_valid(posterior_valid)
   );
 
