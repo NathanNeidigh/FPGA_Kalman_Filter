@@ -20,8 +20,8 @@ module top (
 
     // Outputs
     output logic rpi_miso,  // Pin 23: Post-Logic Output
-    output logic rpi_cs,
-    output logic rpi_sck
+    input logic rpi_cs,
+    input logic rpi_sck
 );
 `ifndef SIMULATION
   logic [15:0] z;
@@ -44,7 +44,7 @@ module top (
 `endif
 
   kalman_filter kalman_filter (
-      .clk(z_valid),
+      .z_valid(z_valid),
       .z(z),
       .x(posterior),
       .x_valid(posterior_valid)

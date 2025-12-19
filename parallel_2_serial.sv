@@ -15,19 +15,22 @@ module parallel_2_serial (
 );
 
   logic [15:0] shift_reg;  // Shift register for serialization
+  logic [ 3:0] bit_count = 0;
 
   // Output is MSB during transmission, idle high otherwise
   assign rpi_miso = shift_reg[15];
 
-  always_comb begin
-      if (rpi_cs && filter_done) begin
-        shift_reg = filtered_data;
-    end
-  end
-
   always_ff @(negedge rpi_sck) begin
-    if (!rpi_cs) begin
+    if (bit_count == 0 && !rpi_cs) begin
+        if (filter_done) begin
+            shift_reg <= filtered_data;
+        end else begin
+            shift_reg <= 0;
+        end
+      bit_count <= bit_count + 1;
+    end else if (!rpi_cs) begin
       shift_reg <= {shift_reg[14:0], shift_reg[15]};
+      bit_count <= bit_count + 1;
     end
   end
 
