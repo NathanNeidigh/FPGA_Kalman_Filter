@@ -3,4 +3,4 @@
 *.asc
 bin/*
 *.vvp
-dump.vcd
+*.vcd

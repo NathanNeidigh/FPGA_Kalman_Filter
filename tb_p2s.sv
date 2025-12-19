@@ -49,12 +49,12 @@ module tb;
 
       // Send 16 bits, MSB first
       for (i = 15; i >= 0; i--) begin
+        // Clock Rising Edge
+        sim_sck = 1'b1;
         bit_stream[i] = sim_miso;
         $display("  Clock cycle %2d: MISO = %b", 15 - i, bit_stream[i]);
-
-        // Toggle clock
-        sim_sck = 1'b1;
-        #50;  // Half-period = 50ns (clock = 20MHz)
+        #50;  // Half-period = 50ns (clock = 20MHz) hold time
+        // Clock Falling Edge
         sim_sck = 1'b0;
         #50;
       end
@@ -67,6 +67,8 @@ module tb;
   endtask
 
   initial begin
+    $dumpfile("tb_p2s.vcd");
+    $dumpvars(0, tb);
     // ==============================================
     // TEST SUITE: ENGR433 FPGA Project
     // ==============================================
@@ -107,6 +109,10 @@ module tb;
 
     #200;  // Allow deserializer to process
     $display("Transaction complete. Check waveform for Filter_Input and data_ready pulse.\n");
+
+    $dumpflush;  // Flush VCD to disk
+    $finish;     // End simulation properly
+
 
   end
 endmodule

@@ -70,7 +70,6 @@ module top (
       .rpi_miso     (rpi_miso)          // The physical serial output pin (Master Out)
   );
   assign rpi_sck = rp2350_sck;  // Directly connect clock
-  assign test_sck = rp2350_sck;
 
 endmodule
 
