@@ -19,7 +19,11 @@ module parallel_2_serial (
   // Output is MSB during transmission, idle high otherwise
   assign rpi_miso = shift_reg[15];
 
-  assign shift_reg = rpi_cs && filter_done ? filtered_data : shift_reg;
+  always_comb begin
+      if (rpi_cs && filter_done) begin
+        shift_reg = filtered_data;
+    end
+  end
 
   always_ff @(negedge rpi_sck) begin
     if (!rpi_cs) begin
