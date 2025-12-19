@@ -11,10 +11,6 @@ module serial_2_parallel (
     output logic [15:0] data_out,  // Output Register: 16-bit parallel data for the filter logic (signed, big-endian).
     output logic        data_ready     // Output Pulse: High for one rp2350_sck cycle when data_out is stable (after 16 bits).
 );
-
-  // -------------------------------------------------------------------------
-  // Internal Registers
-  // -------------------------------------------------------------------------
   logic [15:0] shift_reg = 0;  // 16-bit shift register to capture the serial stream.
   logic [ 4:0] bit_count = 0;  // Counter (0-16) to track the 16 bits of a word.
 
@@ -26,9 +22,6 @@ module serial_2_parallel (
   assign data_ready = (bit_count == 16);
   assign data_out   = {shift_reg[7:0], shift_reg[15:8]};
 
-  // -------------------------------------------------------------------------
-  // Sequential Logic (Synchronous Block)
-  // -------------------------------------------------------------------------
   always_ff @(posedge rp2350_sck) begin
     if (rp2350_cs || bit_count == 16) begin  // CS HIGH = inactive/idle
       bit_count <= 5'd0;  // Reset counter for the next transaction
