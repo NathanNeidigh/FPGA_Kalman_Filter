@@ -1,10 +1,8 @@
----
-
 # 1D Steady-State Kalman Filter on pico2-ice
 
 A SystemVerilog implementation of a real-time Kalman Filter designed for the **pico2-ice** (RP2350 + Lattice iCE40) platform. This project implements a high-speed "middle-man" filter that intercepts raw sensor data via SPI, processes it through a discrete-time Kalman algorithm, and re-serializes it for a host controller.
 
-## Project Status: Functional Simulation / Hardware Debugging
+## 🎯 Project Status: Functional Simulation / Hardware Debugging
 *   **Logic Verification:** 100% Pass (All modules verified via testbench and GTKWave).
 *   **Mathematical Model:** 100% Pass (Steady-state gain convergence verified).
 *   **Hardware Implementation:** **Partial.** The output stage (`parallel_2_serial`) currently exhibits signal integrity issues when interfaced with external Raspberry Pi GPIO.
