@@ -33,7 +33,7 @@ module top (
       .rp2350_sck     (rp2350_sck),   // Physical Pin
       .rp2350_cs      (rp2350_cs),    // Physical Pin
       .rp2350_miso    (rp2350_miso),  // Physical Pin
-      .Filter_Input(z),            // Parallel output wire
+      .data_out(z),            // Parallel output wire
       .data_ready  (z_valid)       // Valid parallel data input to FPGA indicator
   );
 

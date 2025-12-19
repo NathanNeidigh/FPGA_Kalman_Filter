@@ -15,24 +15,25 @@ module serial_2_parallel (
   // -------------------------------------------------------------------------
   // Internal Registers
   // -------------------------------------------------------------------------
-  logic [15:0] shift_reg;  // 16-bit shift register to capture the serial stream.
-  logic [ 4:0] bit_count;  // Counter (0-16) to track the 16 bits of a word.
+  logic [15:0] shift_reg = 0;  // 16-bit shift register to capture the serial stream.
+  logic [ 4:0] bit_count = 0;  // Counter (0-16) to track the 16 bits of a word.
 
   // -------------------------------------------------------------------------
   // Data Ready Logic
   // -------------------------------------------------------------------------
   // data_ready is high exactly when the 16th bit has just been shifted in.
   // This creates a clean one-cycle pulse that downstream logic can use.
-  assign data_ready = (bit_count == 4'b1111);
+  assign data_ready = (bit_count == 16);
+  assign data_out   = {shift_reg[7:0], shift_reg[15:8]};
 
   // -------------------------------------------------------------------------
   // Sequential Logic (Synchronous Block)
   // -------------------------------------------------------------------------
   always_ff @(posedge rp2350_sck) begin
-    if (rp2350_cs || bit_count == 4'b1111) begin  // CS HIGH = inactive/idle
+    if (rp2350_cs || bit_count == 16) begin  // CS HIGH = inactive/idle
       bit_count <= 5'd0;  // Reset counter for the next transaction
       shift_reg <= 16'd0;  // Optional: clear shift register (helps simulation)
-    end else begin  // CS LOW = active SPI transaction
+    end else if (!rp2350_cs) begin  // CS LOW = active SPI transaction
       // 1. Shift Data In
       // Shift left, insert new bit at LSB (bit 0).
       // This is MSB-first reception (standard for ISM330DHCX).
@@ -40,15 +41,6 @@ module serial_2_parallel (
 
       // 2. Increment bit counter
       bit_count <= bit_count + 1'b1;
-
-      // 3. Final Latch and Byte Swap
-      // When the 16th bit (count == 15 → next cycle count == 16) is being received:
-      //   - Low byte  (first received) is now in shift_reg[15:8]
-      //   - High byte (second received) is now in shift_reg[7:0]
-      // We swap them to produce a normal big-endian signed integer.
-      if (bit_count == 5'd15) begin
-        data_out <= {shift_reg[7:0], shift_reg[15:8]};
-      end
     end
   end
 

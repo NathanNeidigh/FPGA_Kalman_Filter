@@ -14,7 +14,7 @@ module tb ();
       .rp2350_sck(sim_sck),
       .rp2350_cs(sim_cs),
       .data_out(result),
-      .data_valid(is_valid)
+      .data_ready(is_valid)
   );
 
   // Test stimulus generation tasks
@@ -32,14 +32,14 @@ module tb ();
       // Send 16 bits, MSB first
       for (i = 15; i >= 0; i--) begin
         sim_miso = bit_stream[i];
-        $display("  Clock cycle %2d: MISO = %b, Output = 0x%04X (0b%b), data ready? %b", 15 - i,
-                 bit_stream[i], result, result, is_valid);
 
         // Toggle clock
-        sim_sck = 1'b1;
+        sim_sck  = 1'b1;
         #50;  // Half-period = 50ns (clock = 20MHz)
         sim_sck = 1'b0;
         #50;
+        $display("  Clock cycle %2d: MISO = %b, Output = 0x%04X (0b%b), data ready? %b", 15 - i,
+                 bit_stream[i], result, result, is_valid);
       end
 
       // End transaction: CS goes high
@@ -85,6 +85,10 @@ module tb ();
     $display("Expected data_out: 0x3412 (bytes swapped for big-endian)\n");
 
     send_spi_word(16'h1234);
+
+    $display("Sending 16-bit word: 0x5678 (binary: 0101'01010'0111'1000)");
+    $display("Expected data_out: 0x7856 (bytes swapped for big-endian)\n");
+    send_spi_word(16'h5678);
 
     #200;  // Allow deserializer to process
     $display("Transaction complete. Check waveform for data_out and data_ready pulse.\n");
