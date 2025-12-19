@@ -72,4 +72,3 @@ module top (
   assign rpi_sck = rp2350_sck;  // Directly connect clock
 
 endmodule
-
