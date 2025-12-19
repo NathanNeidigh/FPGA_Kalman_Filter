@@ -5,9 +5,9 @@
 # -----------------------------------------------------------------------------
 
 # SPI Interface (Tapped Bus)
-set_io -nowarn rp2350_sck  26
+set_io -nowarn rp2350_sck  21
 set_io -nowarn rp2350_miso 27
-set_io -nowarn rp2350_cs   19
+set_io -nowarn rp2350_cs   25
 
 # RGB LEDs (Active Low)
 set_io -nowarn led_green_n 39
@@ -18,6 +18,3 @@ set_io -nowarn led_blue_n  40
 set_io -nowarn rpi_miso   28
 set_io -nowarn rpi_sck    31
 set_io -nowarn rpi_cs     32
-
-# For Testing Only
-set_io -nowarn spi_mosi 14
