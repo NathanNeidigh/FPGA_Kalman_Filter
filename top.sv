@@ -60,4 +60,3 @@ module top (
   );
 
 endmodule
-
