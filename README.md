@@ -1,1 +1,2 @@
 # FPGA 1-D Kalman Filter
+In this project, we sought to implement a Kalman Filter using the ice-40 FPGA included with the pico2-ice development board. Kalman Filters are used generally to determine the most likely state of a system (in our case an accelerometer), based off of the previously estimated state and the recent measurement data to update it. To perform the algorithm to compute the new estimated state, we decided to use an FPGA, because they offer the ambility of processing in parallel. 
