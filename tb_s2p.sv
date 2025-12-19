@@ -51,6 +51,8 @@ module tb ();
   endtask
 
   initial begin
+    $dumpfile("tb_s2p.vcd");
+    $dumpvars(0, tb);
     // ==============================================
     // TEST SUITE: ENGR433 FPGA Project
     // ==============================================
@@ -92,6 +94,10 @@ module tb ();
 
     #200;  // Allow deserializer to process
     $display("Transaction complete. Check waveform for data_out and data_ready pulse.\n");
+
+    $dumpflush;  // Flush VCD to disk
+    $finish;     // End simulation properly
+
   end
 endmodule
 

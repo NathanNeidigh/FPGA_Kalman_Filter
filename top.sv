@@ -46,6 +46,7 @@ module top (
   kalman_filter kalman_filter (
       .z_valid(z_valid),
       .z(z),
+      .z_valid(z_valid),
       .x(posterior),
       .x_valid(posterior_valid)
   );
@@ -58,5 +59,6 @@ module top (
       .rpi_cs       (rpi_cs),
       .rpi_miso     (rpi_miso)          // The physical serial output pin (Master Out)
   );
+  assign rpi_sck = rp2350_sck;  // Directly connect clock
 
 endmodule

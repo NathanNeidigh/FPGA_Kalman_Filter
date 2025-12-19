@@ -126,15 +126,28 @@ def init_sensor():
     write_reg(0x12, 0x01) 					#Software RESET
     time.sleep_ms(30)
     write_reg(0x10, 0x5C)					#Config. Accel.
+    
+    # Continuous Read Register Check
+    while False:							#Set to True if inf. loop checking desired
+        whoami = read_reg(0x0F)
+        if whoami != 0x6B:
+            print(f"ERROR: WHO_AM_I 0x{whoami:02X}")
+        else:
+            print(f"Success: WHO_AM_I {whoami} (0x6B)")
+
+    # Initial Read Register Check
     whoami = read_reg(0x0F)
     if whoami != 0x6B:
         print(f"ERROR: WHO_AM_I 0x{whoami:02X}")
         return
-    print("Success: WHO_AM_I 0x6B")
+    print(f"Success: WHO_AM_I {whoami} (0x6B)")
+    
+    
+    #Data Sent on MISO from sensor
     sensitivity = 8/65536  # ±4 g /range(1 byte)
     print("Accel loop: Rotate to test (Ctrl+C stop)")
     try:
-        while True:
+        while True:							#Set True if measurement desired
             data = read_accel()
             # Raw unsigned 16-bit
             x_raw = int.from_bytes(data[0:2], 'little')
@@ -170,11 +183,10 @@ def init_sensor():
 if __name__ == "__main__":
     # Step 1: Program the FPGA
     # The FPGA must be configured first to set its I/O pins correctly for
-    # data routing before the sensor is to start streaming.
-    success = True
-    #success = load_bitstream("FIXME.bin")
-
+    # data routing before the sensor is told to start streaming.
+    success = load_bitstream("bitstream.bin")
     
     if success:
         # Step 2: Initialize the Sensor
         init_sensor()
+
