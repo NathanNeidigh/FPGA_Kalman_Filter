@@ -19,15 +19,24 @@ module top (
     output logic led_blue_n,    // Pin 40: Active-Low Blue LED
     output logic rpi_miso,      // Pin 23: Post-Logic Output
     output logic rpi_cs,
-    output logic rpi_sck
-);
-  logic [15:0] z;
-  logic        z_valid;
-  // Flash LEDs
-  assign led_red_n   = ~rp2350_miso;
-  assign led_blue_n  = ~z_valid;  //LED indicator of successful serial to parallel conversion
-  assign led_green_n = ~rpi_miso;  // Flash Green LED with processed data (Active-Low)
+    output logic rpi_sck,
 
+    output logic a0,
+    output logic a1,
+    output logic a2,
+    output logic a3,
+    output logic a4,
+    output logic a5,
+    output logic a6,
+    output logic a7
+);
+  logic [15:0] z;                 // Measurement variable, not z-axis
+  logic        z_valid;           // Parallel data input latch trigger
+  // Flash Indicator LEDs
+  assign led_red_n   = ~rp2350_miso;  // Indicates FPGA "sees" data from sensor
+  assign led_blue_n  = ~z_valid;      // Indicates successful latching of serial to parallel data 
+  assign led_green_n = ~rpi_miso;     // Indicates FPGA sends (serial) data to Raspberry Pi
+  
   // Instantiate the deserializer
   serial_2_parallel u_serial_2_parallel (
       .rp2350_sck     (rp2350_sck),   // Physical Pin
@@ -49,15 +58,26 @@ module top (
   // );
     assign filtered_data = z;   // Bypass Kalman filter for testing
     assign x_valid = z_valid;   // Bypass Kalman filter for testing
+    assign a0 = z[0];
+    assign a1 = z[1];
+    assign a2 = z[2];
+    assign a3 = z[3];
+    assign a4 = z[4];
+    assign a5 = z[5];
+    assign a6 = z[6];
+    assign a7 = z[7];
+
 
   // Instantiate the Parallel-to-Serial converter
   parallel_2_serial u_parallel_2_serial (
       .filtered_data(filtered_data),  // The 16-bit data to send
       .filter_done  (x_valid),
-      .rpi_sck      (rpi_sck),
+      .rpi_sck      (rp2350_sck),
       .rpi_cs       (rpi_cs),
       .rpi_miso     (rpi_miso)       // The physical serial output pin (Master Out)
   );
+  assign rpi_sck = rp2350_sck;  // Directly connect clock
+  assign test_sck = rp2350_sck;
 
 endmodule
 

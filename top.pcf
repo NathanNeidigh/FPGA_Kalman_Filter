@@ -21,3 +21,14 @@ set_io -nowarn rpi_cs     32
 
 # For Testing Only
 set_io -nowarn spi_mosi 14
+set_io -nowarn test_sck 43
+
+# For Parallel 8-bit Data Testing
+set_io -nowarn a0 48
+set_io -nowarn a1 47
+set_io -nowarn a2 46
+set_io -nowarn a3 45
+set_io -nowarn a4 44
+set_io -nowarn a5 2
+set_io -nowarn a6 3
+set_io -nowarn a7 4
