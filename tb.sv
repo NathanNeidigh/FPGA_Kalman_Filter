@@ -1,35 +1,119 @@
-module tb ();
-  locaparam STATE_BITS = 16;
+`timescale 1ns / 1ps
 
-  logic clk = 1'b0;
-  always #100 clk <= ~clk;
-  logic [STATE_BITS-1:0] z;
-  logic [STATE_BITS-1:0] x;
-  logic x_valid;
+module tb;
 
-  kalman_filter #(
-      .STATE_BITS(STATE_BITS),  // signed [STATE_BITS-1:0]  (Q = STATE_Q)
-      .STATE_Q(15),  // fractional bits for state & measurement (Q15)
-      .VAR_BITS(64),  // unsigned [COV_BITS-1:0] for P, Q_var, R_var (Q = VAR_Q)
-      .VAR_Q(30),  // fractional bits for variances (Q30)
-      .K_Q(31),  // fractional bits for Kalman gain
-      // wide intermediates use 128-bit vectors in calculations
-      .INTER_W(128)
-  ) kf_inst (
-      .clk(clk),
-      .z_in(z),
-      .x_out(x),
+  // -------------------------------------------------------------------------
+  // Signal Declarations
+  // -------------------------------------------------------------------------
+  logic               clk;
+  logic               reset_n;
+  logic signed [15:0] z;  // Noisy Measurement
+  logic               z_valid;
+  logic signed [15:0] x;  // Filtered Output
+  logic               x_valid;
+
+  // Simulation variables
+  integer             file_handle;
+  logic signed [15:0] true_value;
+  logic signed [15:0] noise;
+  int                 i;
+
+  // -------------------------------------------------------------------------
+  // DUT Instantiation
+  // -------------------------------------------------------------------------
+  kalman_filter u_dut (
+      .clk    (clk),
+      .reset_n(reset_n),
+      .z      (z),
+      .z_valid(z_valid),
+      .x      (x),
       .x_valid(x_valid)
   );
 
+  // -------------------------------------------------------------------------
+  // Clock Generation (100MHz)
+  // -------------------------------------------------------------------------
   initial begin
-    $dumpfile("dump.vcd");
-    $dumpvars(0, tb);
-
-    $display("=== Starting Kalman Filter Test ===");
-    z <= 16'h4009;  // corrosponds to sensor value of 16393 which is about 1 g
-    @(posedge clk);
-    @(posedge x_valid);
-    $display("X=%0h", x);
+    clk = 0;
+    forever #5 clk = ~clk;
   end
+
+  // -------------------------------------------------------------------------
+  // Stimulus and Verification
+  // -------------------------------------------------------------------------
+  initial begin
+    // 1. Initialize
+    reset_n = 0;
+    z = 0;
+    z_valid = 0;
+    true_value = 0;
+
+    // Open CSV file for logging
+    file_handle = $fopen("kalman_data.csv", "w");
+    $fwrite(file_handle, "Time,TrueValue,Measured_Z,Filtered_X\n");
+
+    // 2. Apply Reset
+    #50;
+    @(posedge clk);
+    reset_n = 1;
+    $display("--- Simulation Start ---");
+
+    // 3. Loop: Zero value with noise (Iterations 0 to 49)
+    // This checks if the filter stays near 0 despite noise
+    true_value = 16'sd0;
+    run_simulation_steps(50);
+
+    // 4. Loop: Step response (Iterations 50 to 199)
+    // Jump to 1000. Checks convergence speed.
+    true_value = 16'sd1000;
+    run_simulation_steps(150);
+
+    // 5. Loop: Negative Step response (Iterations 200 to 300)
+    // Jump to -500. Checks signed arithmetic handling.
+    true_value = -16'sd500;
+    run_simulation_steps(100);
+
+    $display("--- Simulation Done. Results saved to kalman_data.csv ---");
+    $fclose(file_handle);
+    $finish;
+  end
+
+  // -------------------------------------------------------------------------
+  // Task to run simulation cycles
+  // -------------------------------------------------------------------------
+  task run_simulation_steps(input int steps);
+    begin
+      for (i = 0; i < steps; i++) begin
+        @(posedge clk);
+
+        // Generate simple noise roughly within +/- 100 range
+        // Note: $urandom returns unsigned, so we cast and mask carefully
+        // Subtracting 100 centers the noise around 0.
+        noise = $signed($urandom_range(200)) - 16'sd100;
+
+        // Drive Measurement
+        z <= true_value + noise;
+        z_valid <= 1'b1;
+
+        @(posedge clk);
+        z_valid <= 1'b0;
+
+        // Wait for Output Valid
+        wait (x_valid);
+
+        // Log to CSV
+        $fwrite(file_handle, "%0t,%0d,%0d,%0d\n", $time, true_value, z, x);
+
+        // Optional: Print to console every 50 steps
+        if (i % 50 == 0) begin
+          $display("Time: %0t | True: %d | Z (Noisy): %d | X (Filtered): %d", $time, true_value, z,
+                   x);
+        end
+
+        // Add some idle time between samples to simulate real data rates
+        repeat (5) @(posedge clk);
+      end
+    end
+  endtask
+
 endmodule
